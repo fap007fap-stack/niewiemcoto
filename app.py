@@ -3,7 +3,7 @@ import hmac
 import os
 import sqlite3
 from contextlib import closing
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from pathlib import Path
 
 import streamlit as st
@@ -53,14 +53,12 @@ def reserve(day, person, color):
         except sqlite3.IntegrityError:
             pass
 
-def release(day, person):
+def release(day):
     with closing(sqlite3.connect(DB_PATH)) as conn:
-        row = conn.execute("SELECT person FROM days_off WHERE date=?", (day,)).fetchone()
-        if row and row[0] == person:
-            conn.execute("DELETE FROM days_off WHERE date=?", (day,))
-            conn.commit()
+        conn.execute("DELETE FROM days_off WHERE date=?", (day,))
+        conn.commit()
 
-# --- COLOR TEXT ---
+# --- COLOR ---
 def text_color(bg):
     bg = bg.lstrip("#")
     r, g, b = int(bg[:2], 16), int(bg[2:4], 16), int(bg[4:], 16)
@@ -69,39 +67,9 @@ def text_color(bg):
 # --- APP ---
 st.set_page_config(layout="wide")
 
-theme = st.sidebar.radio("Motyw", ["Ciemny", "Jasny"])
-dark = theme == "Ciemny"
-
-bg = "#000" if dark else "#fff"
-fg = "#fff" if dark else "#111"
-panel = "#111" if dark else "#f3f4f6"
-border = "#333" if dark else "#ddd"
-
-st.markdown(f"""
-<style>
-.stApp {{
-    background:{bg};
-    color:{fg};
-}}
-
-.calendar-btn {{
-    width: 100%;
-    height: 85px;
-    border-radius: 12px;
-    border: 1px solid {border};
-    font-weight: 700;
-    cursor: pointer;
-}}
-
-.calendar-btn:hover {{
-    opacity: 0.85;
-}}
-</style>
-""", unsafe_allow_html=True)
-
-# --- INIT ---
 init_db()
 
+# --- LOGIN (STABLE) ---
 if "auth" not in st.session_state:
     pwd = st.text_input("Hasło", type="password")
     if st.button("Wejdź"):
@@ -123,19 +91,22 @@ color = st.color_picker("Kolor", DEFAULT_COLORS.get(person, "#2563EB"))
 
 events = get_events()
 
-# --- CLICK HANDLING (QUERY PARAM) ---
-params = st.query_params
+# --- CLICK HANDLER (NO QUERY PARAMS = NO LOGOUT BUG) ---
+clicked = st.session_state.get("clicked_day")
 
-if "day" in params:
-    day = params["day"]
+if clicked:
+    ev = events.get(clicked)
 
-    if day in events:
-        if events[day]["person"] == person:
-            release(day, person)
+    # 🔥 DAGMARA = ADMIN (może wszystko)
+    is_admin = person == "Dagmara"
+
+    if ev:
+        if ev["person"] == person or is_admin:
+            release(clicked)
     else:
-        reserve(day, person, color)
+        reserve(clicked, person, color)
 
-    st.query_params.clear()
+    st.session_state.clicked_day = None
     st.rerun()
 
 # --- NAV ---
@@ -183,22 +154,12 @@ for week in weeks:
         if ev:
             bgc = ev["color"]
             txt = text_color(bgc)
-            label = f"{day}<br>{ev['person']}"
+            label = f"{day}\n{ev['person']}"
         else:
-            bgc = "#222" if dark else "#eee"
-            txt = "#fff" if dark else "#111"
+            bgc = "#222"
+            txt = "#fff"
             label = str(day)
 
-        html = f"""
-        <a href="?day={iso}" style="text-decoration:none">
-            <button class="calendar-btn"
-                style="
-                    background:{bgc};
-                    color:{txt};
-                ">
-                {label}
-            </button>
-        </a>
-        """
-
-        cols[i].markdown(html, unsafe_allow_html=True)
+        if cols[i].button(label, key=iso):
+            st.session_state.clicked_day = iso
+            st.rerun()
