@@ -55,10 +55,8 @@ st.markdown(
         }
 
         .stApp {
-            background:
-                radial-gradient(circle at top left, rgba(99, 102, 241, 0.22), transparent 30%),
-                radial-gradient(circle at 85% 15%, rgba(14, 165, 233, 0.20), transparent 30%),
-                linear-gradient(135deg, #f8fafc 0%, #eef2ff 55%, #fdf2f8 100%);
+             background: #000000;
+            color: var(--text);
         }
 
         .main .block-container {
