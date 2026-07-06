@@ -101,7 +101,7 @@ st.markdown(
 
         .weekday {
             text-align: center;
-            color: #475569;
+            color: #ffffff;
             font-weight: 800;
             font-size: 13px;
             letter-spacing: 0.05em;
@@ -128,7 +128,7 @@ st.markdown(
             display: flex;
             align-items: center;
             justify-content: space-between;
-            color: #0f172a;
+            color: #ffffff;
             font-weight: 900;
             font-size: 17px;
         }
@@ -320,7 +320,7 @@ def text_color_for_bg(hex_color: str) -> str:
     try:
         r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
     except Exception:
-        return "#111827"
+        return "#ffffff"
     luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
     return "#ffffff" if luminance < 0.55 else "#111827"
 
@@ -386,7 +386,7 @@ def render_day(day: int, year: int, month: int, selected_person: str, selected_c
         <div class="day-card{today_class}">
             <div class="day-number">
                 <span>{day}</span>
-                <span style="font-size: 12px; color: #64748b; font-weight: 800;">{POLISH_MONTHS[month][:3]}</span>
+                <span style="font-size: 12px; color: #ffffff; font-weight: 800;">{POLISH_MONTHS[month][:3]}</span>
             </div>
         """,
         unsafe_allow_html=True,
@@ -500,7 +500,7 @@ def main() -> None:
         st.button("← Poprzedni", on_click=change_month, args=(-1,), use_container_width=True)
     with nav_mid:
         st.markdown(
-            f"<h2 style='text-align:center; margin: 4px 0 0 0; letter-spacing: -0.03em;'>{POLISH_MONTHS[st.session_state.calendar_month]} {st.session_state.calendar_year}</h2>",
+            f"<h2 style='text-align:center; margin: 4px 0 0 0; letter-spacing: -0.03em; color: #ffffff;'>{POLISH_MONTHS[st.session_state.calendar_month]} {st.session_state.calendar_year}</h2>",
             unsafe_allow_html=True,
         )
     with nav_right:
