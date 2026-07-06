@@ -3,11 +3,12 @@ import hmac
 import os
 import sqlite3
 from contextlib import closing
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import streamlit as st
 
+# --- CONFIGURATION ---
 APP_PASSWORD = os.getenv("APP_PASSWORD", "dexflex67")
 DB_PATH = Path(__file__).with_name("out_of_office.db")
 PEOPLE = ["Dagmara", "Szymon", "Michał", "Darek", "Julka"]
@@ -19,545 +20,265 @@ DEFAULT_COLORS = {
     "Julka": "#7C3AED",
 }
 POLISH_MONTHS = {
-    1: "Styczeń",
-    2: "Luty",
-    3: "Marzec",
-    4: "Kwiecień",
-    5: "Maj",
-    6: "Czerwiec",
-    7: "Lipiec",
-    8: "Sierpień",
-    9: "Wrzesień",
-    10: "Październik",
-    11: "Listopad",
-    12: "Grudzień",
+    1: "Styczeń", 2: "Luty", 3: "Marzec", 4: "Kwiecień", 5: "Maj", 6: "Czerwiec",
+    7: "Lipiec", 8: "Sierpień", 9: "Wrzesień", 10: "Październik", 11: "Listopad", 12: "Grudzień"
 }
 WEEKDAYS = ["Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Nd"]
 
+# --- HOLIDAYS LOGIC ---
+def get_easter(year):
+    a = year % 19
+    b = year // 100
+    c = year % 100
+    d = b // 4
+    e = b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i = c // 4
+    k = c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month = (h + l - 7 * m + 114) // 31
+    day = ((h + l - 7 * m + 114) % 31) + 1
+    return date(year, month, day)
 
-st.set_page_config(
-    page_title="Poza biurem",
-    page_icon="🗓️",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
+def get_polish_holidays(year):
+    easter = get_easter(year)
+    holidays = {
+        date(year, 1, 1): "Nowy Rok",
+        date(year, 1, 6): "Trzech Króli",
+        easter: "Wielkanoc",
+        easter + timedelta(days=1): "Poniedziałek Wielkanocny",
+        date(year, 5, 1): "Święto Pracy",
+        date(year, 5, 3): "Święto Konstytucji 3 Maja",
+        easter + timedelta(days=49): "Zielone Świątki",
+        easter + timedelta(days=60): "Boże Ciało",
+        date(year, 8, 15): "Wniebowzięcie NMP",
+        date(year, 11, 1): "Wszystkich Świętych",
+        date(year, 11, 11): "Święto Niepodległości",
+        date(year, 12, 25): "Boże Narodzenie",
+        date(year, 12, 26): "Boże Narodzenie",
+    }
+    return holidays
 
-
-st.markdown(
-    """
-    <style>
-        :root {
-            --card-bg: rgba(255, 255, 255, 0.78);
-            --stroke: rgba(15, 23, 42, 0.10);
-            --soft: rgba(15, 23, 42, 0.06);
-            --text: #0f172a;
-            --muted: #64748b;
-        }
-
-        .stApp {
-             background: #000000;
-            color: var(--text);
-        }
-
-        .main .block-container {
-            padding-top: 2rem;
-            padding-bottom: 3rem;
-            max-width: 1180px;
-        }
-
-        .hero {
-            padding: 28px 30px;
-            border: 1px solid var(--stroke);
-            border-radius: 28px;
-            background: rgba(255,255,255,0.72);
-            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.10);
-            backdrop-filter: blur(16px);
-            margin-bottom: 20px;
-        }
-
-        .hero h1 {
-            margin: 0;
-            font-size: 42px;
-            line-height: 1.05;
-            letter-spacing: -0.04em;
-            color: var(--text);
-        }
-
-        .hero p {
-            color: var(--muted);
-            margin-top: 10px;
-            font-size: 17px;
-        }
-
-        .panel {
-            padding: 20px;
-            border: 1px solid var(--stroke);
-            border-radius: 24px;
-            background: rgba(255,255,255,0.72);
-            box-shadow: 0 14px 45px rgba(15, 23, 42, 0.08);
-            backdrop-filter: blur(14px);
-            margin-bottom: 18px;
-        }
-
-        .weekday {
-            text-align: center;
-            color: #ffffff;
-            font-weight: 800;
-            font-size: 13px;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-            padding: 8px 0 12px 0;
-        }
-
-        .day-card {
-            min-height: 126px;
-            border: 1px solid var(--stroke);
-            border-radius: 20px;
-            background: rgba(255,255,255,0.72);
-            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
-            padding: 13px 13px 10px 13px;
-            margin-bottom: 8px;
-        }
-
-        .day-card.today {
-            outline: 3px solid rgba(37, 99, 235, 0.18);
-            border-color: rgba(37, 99, 235, 0.35);
-        }
-
-        .day-number {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            color: #ffffff;
-            font-weight: 900;
-            font-size: 17px;
-        }
-
-        .chip-free,
-        .chip-taken,
-        .chip-mine {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            margin-top: 12px;
-            border-radius: 999px;
-            padding: 8px 10px;
-            font-size: 13px;
-            font-weight: 800;
-            max-width: 100%;
-        }
-
-        .chip-free {
-            background: rgba(16, 185, 129, 0.12);
-            color: #047857;
-        }
-
-        .chip-taken {
-            color: #111827;
-            box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
-        }
-
-        .chip-mine {
-            color: #111827;
-            box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
-        }
-
-        .empty-day {
-            min-height: 126px;
-            border: 1px dashed rgba(15, 23, 42, 0.10);
-            border-radius: 20px;
-            background: rgba(255,255,255,0.32);
-            margin-bottom: 8px;
-        }
-
-        .metric-card {
-            border: 1px solid var(--stroke);
-            border-radius: 20px;
-            background: rgba(255,255,255,0.62);
-            padding: 16px;
-            min-height: 94px;
-        }
-
-        .metric-card .label {
-            color: #64748b;
-            font-size: 13px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-
-        .metric-card .value {
-            color: #0f172a;
-            font-size: 30px;
-            font-weight: 950;
-            letter-spacing: -0.04em;
-            margin-top: 2px;
-        }
-
-        .legend-item {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            border: 1px solid var(--stroke);
-            border-radius: 999px;
-            padding: 9px 12px;
-            margin: 0 8px 8px 0;
-            background: rgba(255,255,255,0.65);
-            font-weight: 800;
-            color: #0f172a;
-        }
-
-        .dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 999px;
-            display: inline-block;
-        }
-
-        div.stButton > button {
-            width: 100%;
-            border-radius: 14px;
-            border: 1px solid rgba(15, 23, 42, 0.10);
-            background: rgba(255,255,255,0.86);
-            font-weight: 850;
-            color: #0f172a;
-            min-height: 38px;
-            transition: all 0.15s ease;
-        }
-
-        div.stButton > button:hover {
-            transform: translateY(-1px);
-            border-color: rgba(37, 99, 235, 0.45);
-            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.12);
-        }
-
-        .small-note {
-            color: #64748b;
-            font-size: 13px;
-            line-height: 1.45;
-        }
-
-        .lock-card {
-            max-width: 520px;
-            margin: 8vh auto 0 auto;
-            padding: 30px;
-            border: 1px solid var(--stroke);
-            border-radius: 30px;
-            background: rgba(255,255,255,0.76);
-            box-shadow: 0 28px 80px rgba(15, 23, 42, 0.12);
-            backdrop-filter: blur(16px);
-        }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-def init_db() -> None:
+# --- DATABASE ---
+def init_db():
     with closing(sqlite3.connect(DB_PATH, timeout=20)) as conn:
-        conn.execute(
-            """
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS days_off (
                 date TEXT PRIMARY KEY,
                 person TEXT NOT NULL,
                 color TEXT NOT NULL,
                 created_at TEXT NOT NULL
             )
-            """
-        )
+        """)
         conn.commit()
 
-
-def get_all_events() -> dict[str, dict[str, str]]:
+def get_all_events():
     with closing(sqlite3.connect(DB_PATH, timeout=20)) as conn:
-        rows = conn.execute(
-            "SELECT date, person, color, created_at FROM days_off ORDER BY date ASC"
-        ).fetchall()
-    return {
-        row[0]: {
-            "person": row[1],
-            "color": row[2],
-            "created_at": row[3],
-        }
-        for row in rows
-    }
+        rows = conn.execute("SELECT date, person, color, created_at FROM days_off ORDER BY date ASC").fetchall()
+    return {row[0]: {"person": row[1], "color": row[2], "created_at": row[3]} for row in rows}
 
-
-def reserve_day(day: date, person: str, color: str) -> tuple[bool, str]:
+def reserve_day(day: date, person: str, color: str):
     try:
         with closing(sqlite3.connect(DB_PATH, timeout=20)) as conn:
-            conn.execute(
-                "INSERT INTO days_off(date, person, color, created_at) VALUES (?, ?, ?, ?)",
-                (day.isoformat(), person, color, datetime.now().isoformat(timespec="seconds")),
-            )
+            conn.execute("INSERT INTO days_off(date, person, color, created_at) VALUES (?, ?, ?, ?)",
+                        (day.isoformat(), person, color, datetime.now().isoformat(timespec="seconds")))
             conn.commit()
-        return True, "Zaznaczono dzień poza biurem."
+        return True, "Zaznaczono dzień."
     except sqlite3.IntegrityError:
-        return False, "Ten dzień jest już zajęty przez inną osobę."
+        return False, "Dzień zajęty."
 
-
-def release_day(day: date, person: str) -> tuple[bool, str]:
+def release_day(day: date, person: str):
     with closing(sqlite3.connect(DB_PATH, timeout=20)) as conn:
-        current = conn.execute(
-            "SELECT person FROM days_off WHERE date = ?", (day.isoformat(),)
-        ).fetchone()
-        if current is None:
-            return False, "Ten dzień nie jest już zaznaczony."
-        if current[0] != person:
-            return False, "Możesz odznaczyć tylko swój własny dzień."
-        conn.execute("DELETE FROM days_off WHERE date = ?", (day.isoformat(),))
-        conn.commit()
-    return True, "Odznaczono dzień."
+        current = conn.execute("SELECT person FROM days_off WHERE date = ?", (day.isoformat(),)).fetchone()
+        if current and current[0] == person:
+            conn.execute("DELETE FROM days_off WHERE date = ?", (day.isoformat(),))
+            conn.commit()
+            return True, "Odznaczono."
+        return False, "Nie możesz tego zrobić."
 
-
-def month_events(events: dict[str, dict[str, str]], year: int, month: int) -> dict[str, dict[str, str]]:
-    prefix = f"{year:04d}-{month:02d}-"
-    return {key: value for key, value in events.items() if key.startswith(prefix)}
-
-
-def text_color_for_bg(hex_color: str) -> str:
+# --- UI HELPERS ---
+def text_color_for_bg(hex_color):
     hex_color = hex_color.lstrip("#")
-    try:
-        r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
-    except Exception:
-        return "#ffffff"
+    r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
     luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
     return "#ffffff" if luminance < 0.55 else "#111827"
 
+# --- PAGE SETUP ---
+st.set_page_config(page_title="Poza biurem", page_icon="🗓️", layout="wide", initial_sidebar_state="collapsed")
 
-def polish_date_label(iso_date: str) -> str:
-    parsed = datetime.fromisoformat(iso_date).date()
-    return f"{parsed.day:02d}.{parsed.month:02d}.{parsed.year}"
+st.markdown("""
+    <style>
+        .stApp { background: #000000; color: #ffffff; }
+        .main .block-container { padding-top: 1rem; max-width: 1200px; }
+        
+        /* Form & Hero */
+        .hero { padding: 20px; border-radius: 20px; background: #111111; border: 1px solid #333; margin-bottom: 15px; }
+        .hero h1 { font-size: 32px; color: #ffffff; margin: 0; }
+        .hero p { color: #888; font-size: 14px; margin: 5px 0 0 0; }
+        
+        .panel { padding: 15px; border-radius: 20px; background: #111111; border: 1px solid #333; margin-bottom: 15px; }
+        
+        /* Calendar Grid */
+        .week-number { color: #555; font-size: 11px; font-weight: 800; text-align: center; padding-top: 15px; }
+        .weekday { text-align: center; color: #ffffff; font-weight: 800; font-size: 12px; text-transform: uppercase; padding-bottom: 10px; }
+        
+        .day-container { position: relative; min-height: 90px; border-radius: 12px; border: 1px solid #222; background: #0a0a0a; margin-bottom: 5px; transition: 0.2s; overflow: hidden; }
+        .day-container.weekend { background: #050505; border-color: #1a1a1a; opacity: 0.6; }
+        .day-container.holiday { border-color: #442222; }
+        .day-container.today { border: 2px solid #2563EB; }
+        
+        .day-header { display: flex; justify-content: space-between; padding: 5px 8px; font-size: 14px; font-weight: 900; }
+        .holiday-name { font-size: 9px; color: #E11D48; position: absolute; bottom: 5px; left: 8px; font-weight: 700; text-transform: uppercase; }
+        
+        /* Reservation Overlay */
+        .reservation-box { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 11px; font-weight: 900; text-align: center; padding: 5px;
+            z-index: 2; pointer-events: none;
+        }
+        
+        /* Button styling to fit inside */
+        div.stButton > button {
+            background: transparent; border: none; color: #444; width: 100%; height: 90px; 
+            position: absolute; top: 0; left: 0; z-index: 1; margin: 0; padding: 0;
+        }
+        div.stButton > button:hover { background: rgba(255,255,255,0.05); color: #fff; }
+        
+        /* Input fields fix */
+        .stSelectbox label, .stColorPicker label { color: #eee !important; font-weight: 700; }
+        div[data-baseweb="select"] { background: #1a1a1a !important; border: 1px solid #333 !important; }
+        input { background: #1a1a1a !important; color: white !important; border: 1px solid #333 !important; }
+        
+        /* Login screen */
+        .lock-card { max-width: 400px; margin: 15vh auto; padding: 40px; background: #111; border: 1px solid #333; border-radius: 30px; text-align: center; }
+        .lock-card h3 { color: #fff; margin-bottom: 20px; }
+    </style>
+""", unsafe_allow_html=True)
 
-
-def password_gate() -> bool:
-    if st.session_state.get("authenticated"):
-        return True
-
-    st.markdown('<div class="lock-card">', unsafe_allow_html=True)
-    st.markdown("### 🔐 Wejście do kalendarza")
-    st.caption("Podaj hasło, żeby zobaczyć i edytować dni poza biurem.")
-
-    password = st.text_input("Hasło", type="password", placeholder="Wpisz hasło")
-    enter = st.button("Wejdź", use_container_width=True)
-
-    if enter:
-        if hmac.compare_digest(password, APP_PASSWORD):
-            st.session_state.authenticated = True
-            st.rerun()
-        else:
-            st.error("Nieprawidłowe hasło.")
-
-    st.markdown("</div>", unsafe_allow_html=True)
-    return False
-
-
-def change_month(delta: int) -> None:
-    year = st.session_state.calendar_year
-    month = st.session_state.calendar_month + delta
-    if month < 1:
-        month = 12
-        year -= 1
-    if month > 12:
-        month = 1
-        year += 1
-    st.session_state.calendar_year = year
-    st.session_state.calendar_month = month
-
-
-def set_current_month() -> None:
-    today = date.today()
-    st.session_state.calendar_year = today.year
-    st.session_state.calendar_month = today.month
-
-
-def render_day(day: int, year: int, month: int, selected_person: str, selected_color: str, events: dict[str, dict[str, str]]) -> None:
-    if day == 0:
-        st.markdown('<div class="empty-day"></div>', unsafe_allow_html=True)
-        return
-
-    current_day = date(year, month, day)
-    iso = current_day.isoformat()
-    event = events.get(iso)
-    today_class = " today" if current_day == date.today() else ""
-
-    st.markdown(
-        f"""
-        <div class="day-card{today_class}">
-            <div class="day-number">
-                <span>{day}</span>
-                <span style="font-size: 12px; color: #ffffff; font-weight: 800;">{POLISH_MONTHS[month][:3]}</span>
-            </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    if event:
-        owner = event["person"]
-        color = event["color"]
-        label = "Twój dzień" if owner == selected_person else "Zajęte"
-        class_name = "chip-mine" if owner == selected_person else "chip-taken"
-        txt_color = text_color_for_bg(color)
-        st.markdown(
-            f"""
-            <div class="{class_name}" style="background: {color}; color: {txt_color};">
-                <span>●</span><span>{label}: {owner}</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            '<div class="chip-free">✓ Wolne</div>',
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    if event and event["person"] == selected_person:
-        if st.button("Odznacz", key=f"remove-{iso}"):
-            ok, msg = release_day(current_day, selected_person)
-            if ok:
-                st.toast(msg, icon="✅")
-            else:
-                st.toast(msg, icon="⚠️")
-            st.rerun()
-    elif event:
-        st.button("Zablokowane", key=f"blocked-{iso}", disabled=True)
-    else:
-        if st.button("Zaznacz", key=f"add-{iso}"):
-            ok, msg = reserve_day(current_day, selected_person, selected_color)
-            if ok:
-                st.toast(msg, icon="✅")
-            else:
-                st.toast(msg, icon="⚠️")
-            st.rerun()
-
-
-def main() -> None:
+# --- APP LOGIC ---
+def main():
     init_db()
-
-    if not password_gate():
+    
+    if "authenticated" not in st.session_state:
+        st.markdown('<div class="lock-card">', unsafe_allow_html=True)
+        st.markdown("### 🔐 Kalendarz Firmowy")
+        pwd = st.text_input("Hasło", type="password")
+        if st.button("Wejdź", use_container_width=True):
+            if hmac.compare_digest(pwd, APP_PASSWORD):
+                st.session_state.authenticated = True
+                st.rerun()
+            else: st.error("Błędne hasło")
+        st.markdown('</div>', unsafe_allow_html=True)
         return
 
     today = date.today()
     st.session_state.setdefault("calendar_year", today.year)
     st.session_state.setdefault("calendar_month", today.month)
-
-    st.markdown(
-        """
-        <div class="hero">
-            <h1>Kalendarz poza biurem</h1>
-            <p>Wybierz osobę, kolor i zaznacz dzień. Jeśli dzień jest już zajęty, nikt inny nie może go wybrać, dopóki właściciel go nie odznaczy.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    settings_left, settings_right = st.columns([1.15, 0.85], gap="large")
-
-    with settings_left:
-        st.markdown('<div class="panel">', unsafe_allow_html=True)
-        person = st.selectbox("Kto zaznacza dzień?", PEOPLE, index=0)
-        color = st.color_picker("Twój kolor na kalendarzu", DEFAULT_COLORS.get(person, "#2563EB"))
-        st.markdown("</div>", unsafe_allow_html=True)
-
+    
+    # --- HEADER & SETTINGS ---
+    st.markdown(f'<div class="hero"><h1>Kalendarz Poza Biurem</h1><p>Kliknij w kwadrat dnia, aby zarezerwować lub odznaczyć swoją obecność.</p></div>', unsafe_allow_html=True)
+    
+    col_set1, col_set2, col_set3 = st.columns([2, 1, 2])
+    with col_set1:
+        person = st.selectbox("Kto używa?", PEOPLE)
+    with col_set2:
+        color = st.color_picker("Kolor", DEFAULT_COLORS.get(person, "#2563EB"))
+    
     events = get_all_events()
-    current_month_events = month_events(events, st.session_state.calendar_year, st.session_state.calendar_month)
-    mine_this_month = sum(1 for item in current_month_events.values() if item["person"] == person)
-    taken_this_month = len(current_month_events)
-
-    with settings_right:
-        metric_a, metric_b = st.columns(2)
-        with metric_a:
-            st.markdown(
-                f"""
-                <div class="metric-card">
-                    <div class="label">Zajęte w miesiącu</div>
-                    <div class="value">{taken_this_month}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        with metric_b:
-            st.markdown(
-                f"""
-                <div class="metric-card">
-                    <div class="label">Twoje dni</div>
-                    <div class="value">{mine_this_month}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        st.markdown(
-            '<p class="small-note">Podgląd odświeża się po każdej zmianie. SQLite pilnuje, żeby jeden dzień mógł mieć tylko jednego właściciela.</p>',
-            unsafe_allow_html=True,
-        )
-
+    holidays = get_polish_holidays(st.session_state.calendar_year)
+    
+    # --- NAVIGATION ---
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    nav_left, nav_mid, nav_right, nav_today = st.columns([1, 2, 1, 1])
-    with nav_left:
-        st.button("← Poprzedni", on_click=change_month, args=(-1,), use_container_width=True)
-    with nav_mid:
-        st.markdown(
-            f"<h2 style='text-align:center; margin: 4px 0 0 0; letter-spacing: -0.03em; color: #ffffff;'>{POLISH_MONTHS[st.session_state.calendar_month]} {st.session_state.calendar_year}</h2>",
-            unsafe_allow_html=True,
-        )
-    with nav_right:
-        st.button("Następny →", on_click=change_month, args=(1,), use_container_width=True)
-    with nav_today:
-        st.button("Dzisiaj", on_click=set_current_month, use_container_width=True)
+    n1, n2, n3, n4 = st.columns([1, 3, 1, 1])
+    with n1: 
+        if st.button("←", key="prev"):
+            st.session_state.calendar_month -= 1
+            if st.session_state.calendar_month < 1:
+                st.session_state.calendar_month = 12
+                st.session_state.calendar_year -= 1
+            st.rerun()
+    with n2: st.markdown(f"<h3 style='text-align:center; margin:0;'>{POLISH_MONTHS[st.session_state.calendar_month]} {st.session_state.calendar_year}</h3>", unsafe_allow_html=True)
+    with n3:
+        if st.button("→", key="next"):
+            st.session_state.calendar_month += 1
+            if st.session_state.calendar_month > 12:
+                st.session_state.calendar_month = 1
+                st.session_state.calendar_year += 1
+            st.rerun()
+    with n4:
+        if st.button("Dzisiaj"):
+            st.session_state.calendar_year, st.session_state.calendar_month = today.year, today.month
+            st.rerun()
 
-    header_cols = st.columns(7)
-    for col, weekday in zip(header_cols, WEEKDAYS):
-        with col:
-            st.markdown(f'<div class="weekday">{weekday}</div>', unsafe_allow_html=True)
+    # --- CALENDAR GRID ---
+    cols = st.columns([0.5] + [1]*7)
+    cols[0].markdown('<div class="weekday">Tydz</div>', unsafe_allow_html=True)
+    for i, day_name in enumerate(WEEKDAYS):
+        cols[i+1].markdown(f'<div class="weekday">{day_name}</div>', unsafe_allow_html=True)
 
     cal = calendar.Calendar(firstweekday=0)
-    for week in cal.monthdayscalendar(st.session_state.calendar_year, st.session_state.calendar_month):
-        cols = st.columns(7)
-        for col, day in zip(cols, week):
-            with col:
-                render_day(day, st.session_state.calendar_year, st.session_state.calendar_month, person, color, events)
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.subheader("Najbliższe dni poza biurem")
-    future_events = [
-        (iso, item)
-        for iso, item in events.items()
-        if datetime.fromisoformat(iso).date() >= today
-    ]
-    future_events = future_events[:12]
-
-    if not future_events:
-        st.info("Nie ma jeszcze żadnych przyszłych dni poza biurem.")
-    else:
-        for iso, item in future_events:
-            txt_color = text_color_for_bg(item["color"])
-            st.markdown(
-                f"""
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border:1px solid rgba(15,23,42,0.08); border-radius:16px; margin-bottom:8px; background:rgba(255,255,255,0.62);">
-                    <div style="font-weight:900; color:#0f172a;">{polish_date_label(iso)}</div>
-                    <div style="border-radius:999px; padding:7px 11px; font-weight:900; background:{item['color']}; color:{txt_color};">{item['person']}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    with st.expander("Legenda i zasady"):
-        legend_html = "".join(
-            f'<span class="legend-item"><span class="dot" style="background:{DEFAULT_COLORS[name]};"></span>{name}</span>'
-            for name in PEOPLE
-        )
-        st.markdown(legend_html, unsafe_allow_html=True)
-        st.write(
-            "Każdy może zaznaczyć wolny dzień. Dzień zajęty przez inną osobę jest zablokowany. "
-            "Odznaczyć dzień może tylko osoba, która go wcześniej zaznaczyła."
-        )
-
+    month_days = cal.monthdayscalendar(st.session_state.calendar_year, st.session_state.calendar_month)
+    
+    for week in month_days:
+        w_cols = st.columns([0.5] + [1]*7)
+        
+        # Week number
+        first_day_of_week = next((d for d in week if d != 0), None)
+        if first_day_of_week:
+            dt = date(st.session_state.calendar_year, st.session_state.calendar_month, first_day_of_week)
+            week_num = dt.isocalendar()[1]
+            w_cols[0].markdown(f'<div class="week-number">{week_num}</div>', unsafe_allow_html=True)
+        
+        for i, day in enumerate(week):
+            if day == 0:
+                w_cols[i+1].markdown('<div style="min-height:90px;"></div>', unsafe_allow_html=True)
+                continue
+            
+            cur_dt = date(st.session_state.calendar_year, st.session_state.calendar_month, day)
+            iso = cur_dt.isoformat()
+            is_weekend = i >= 5
+            holiday_name = holidays.get(cur_dt)
+            event = events.get(iso)
+            
+            classes = ["day-container"]
+            if is_weekend: classes.append("weekend")
+            if holiday_name: classes.append("holiday")
+            if cur_dt == today: classes.append("today")
+            
+            with w_cols[i+1]:
+                st.markdown(f'<div class="{" ".join(classes)}">', unsafe_allow_html=True)
+                st.markdown(f'<div class="day-header"><span>{day}</span></div>', unsafe_allow_html=True)
+                if holiday_name:
+                    st.markdown(f'<div class="holiday-name">{holiday_name}</div>', unsafe_allow_html=True)
+                
+                if event:
+                    owner = event["person"]
+                    bg = event["color"]
+                    tx = text_color_for_bg(bg)
+                    st.markdown(f'<div class="reservation-box" style="background:{bg}; color:{tx};">{owner}</div>', unsafe_allow_html=True)
+                    if st.button("", key=f"btn-{iso}"):
+                        if owner == person:
+                            release_day(cur_dt, person)
+                            st.rerun()
+                        else: st.toast(f"Zajęte przez: {owner}", icon="🚫")
+                else:
+                    if st.button("", key=f"btn-{iso}"):
+                        reserve_day(cur_dt, person, color)
+                        st.rerun()
+                
+                st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # --- FOOTER ---
+    with st.expander("Legenda"):
+        st.write("🔴 Dni świąteczne | 🌑 Weekendy (niepracujące) | 🟦 Dzisiaj")
+        l_html = "".join([f'<span style="display:inline-block; padding:4px 10px; border-radius:10px; background:{c}; color:{text_color_for_bg(c)}; margin-right:5px; font-size:12px; font-weight:bold;">{p}</span>' for p,c in DEFAULT_COLORS.items()])
+        st.markdown(l_html, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
