@@ -138,59 +138,63 @@ for week in cal.monthdatescalendar(y,m):
         if d.month!=m:
             cols[i+1].write("")
             continue
-        key=str(d)
-        people=data.get(key,[])
-        with cols[i+1]:
-            st.markdown(f"**{d.day}**")
-                 for idx, p in enumerate(people):
+                key=str(d)
+                people=data.get(key,[])
+                with cols[i+1]:
 
-            cc = USERS[p]
+            st.markdown(f"### {d.day}")
 
-            left, right = st.columns([8,1])
+            for idx, p in enumerate(people):
 
-            with left:
-                st.markdown(
-                    f"""
-                    <div style="
-                        background:{cc};
-                        color:white;
-                        border-radius:8px;
-                        padding:6px 10px;
-                        font-weight:600;
-                        margin-bottom:4px;
-                    ">
-                        {p}
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+                cc = USERS[p]
 
-            with right:
-                if p == me:
-                    if st.button("✕", key=f"del{key}{idx}", use_container_width=True):
-                        people.remove(p)
+                row1, row2 = st.columns([6, 1], gap="small")
 
-                        if people:
-                            data[key] = people
-                        else:
-                            data.pop(key, None)
+                with row1:
+                    st.markdown(
+                        f"""
+                        <div style="
+                            background:{cc};
+                            color:white;
+                            border-radius:8px;
+                            padding:6px 10px;
+                            font-weight:600;
+                            margin-bottom:4px;
+                        ">
+                            {p}
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
 
-                        with open(FILE, "w", encoding="utf8") as f:
-                            json.dump(data, f, ensure_ascii=False)
+                with row2:
+                    if p == me:
+                        if st.button(
+                            "✕",
+                            key=f"del{key}{idx}",
+                            use_container_width=True,
+                        ):
+                            people.remove(p)
 
-                        st.rerun()
+                            if people:
+                                data[key] = people
+                            else:
+                                data.pop(key, None)
 
-        if me not in people and len(people) < 2:
-            if st.button("➕", key="add"+key):
-                people.append(me)
-                data[key] = people
+                            with open(FILE, "w", encoding="utf8") as f:
+                                json.dump(data, f, ensure_ascii=False)
 
-                with open(FILE, "w", encoding="utf8") as f:
-                    json.dump(data, f, ensure_ascii=False)
+                            st.rerun()
 
-                st.rerun()
+            if me not in people and len(people) < 2:
+                if st.button("➕", key="add"+key, use_container_width=True):
+                    people.append(me)
+                    data[key] = people
 
-        elif len(people) >= 2:
-            st.caption("Pełny")
-            elif len(people)>=2:
+                    with open(FILE, "w", encoding="utf8") as f:
+                        json.dump(data, f, ensure_ascii=False)
+
+                    st.rerun()
+
+            elif len(people) >= 2:
                 st.caption("Pełny")
