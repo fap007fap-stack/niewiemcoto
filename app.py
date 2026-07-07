@@ -1,220 +1,70 @@
-import streamlit as st
-import calendar
-import json
-import os
-from datetime import date, datetime
-from collections import defaultdict
+import streamlit as st, calendar, json, os
+from datetime import date
+st.set_page_config(layout="wide",page_title="Kalendarz Zespołu")
+PASSWORD="dexflex67"
+USERS={"Dagmara":"#ff5c8d","Julia":"#b05cff","Darek":"#4da6ff","Szymon":"#45d483","Michał":"#ffb347"}
+PL=["","Styczeń","Luty","Marzec","Kwiecień","Maj","Czerwiec","Lipiec","Sierpień","Wrzesień","Październik","Listopad","Grudzień"]
+FILE="calendar_data.json"
 
-st.set_page_config(
-    page_title="Kalendarz Zespołu",
-    layout="wide"
-)
-
-PASSWORD = "dexflex67"
-
-USERS = {
-    "Dagmara": "#ff5c8d",
-    "Julia": "#b05cff",
-    "Darek": "#4da6ff",
-    "Szymon": "#45d483",
-    "Michał": "#ffb347"
-}
-
-DATA_FILE = "calendar_data.json"
-
-
-# ---------- Hasło ----------
-
-if "logged" not in st.session_state:
-    st.session_state.logged = False
-
-if not st.session_state.logged:
-
-    st.title("🔒 Kalendarz Zespołowy")
-
-    password = st.text_input(
-        "Podaj hasło",
-        type="password"
-    )
-
-    if st.button("Zaloguj"):
-        if password == PASSWORD:
-            st.session_state.logged = True
-            st.rerun()
-        else:
-            st.error("Niepoprawne hasło")
-
+st.markdown("""<style>
+.block{border-radius:12px;padding:8px;height:120px;border:1px solid #ddd;background:#fafafa}
+</style>""",unsafe_allow_html=True)
+if "ok" not in st.session_state: st.session_state.ok=False
+if not st.session_state.ok:
+    st.title("🔒 Logowanie")
+    p=st.text_input("Hasło",type="password")
+    if st.button("Wejdź"):
+        if p==PASSWORD:
+            st.session_state.ok=True; st.rerun()
+        else: st.error("Błędne hasło")
     st.stop()
 
-# ---------- Dane ----------
+data={}
+if os.path.exists(FILE): data=json.load(open(FILE,encoding="utf8"))
 
-if os.path.exists(DATA_FILE):
-    with open(DATA_FILE, "r", encoding="utf8") as f:
-        data = json.load(f)
-else:
-    data = {}
+t=date.today()
+a,b,c=st.columns([1,1,2])
+with a: y=st.number_input("Rok",value=t.year,step=1)
+with b: m=st.selectbox("Miesiąc",range(1,13),index=t.month-1,format_func=lambda x:PL[x])
+with c: me=st.selectbox("Jesteś",list(USERS))
+st.title(f"{PL[m]} {y}")
 
-# ---------- Styl ----------
+legend=st.columns(len(USERS))
+for col,(u,colr) in zip(legend,USERS.items()):
+    col.markdown(f"<div style='background:{colr};color:white;padding:6px;border-radius:8px;text-align:center'>{u}</div>",unsafe_allow_html=True)
 
-st.markdown("""
-<style>
+heads=["Week","Pon","Wt","Śr","Czw","Pt","Sob","Nd"]
+cols=st.columns(8)
+for c,h in zip(cols,heads): c.markdown(f"**{h}**")
 
-div.stButton>button{
-width:100%;
-height:75px;
-font-size:15px;
-border-radius:10px;
-}
-
-.dayBox{
-border-radius:10px;
-padding:6px;
-height:85px;
-font-size:14px;
-font-weight:bold;
-}
-
-.weekLabel{
-font-weight:bold;
-font-size:18px;
-padding-top:25px;
-}
-
-.month{
-font-size:34px;
-font-weight:bold;
-padding-bottom:15px;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-# ---------- Wybór ----------
-
-today = date.today()
-
-c1,c2,c3 = st.columns([2,2,6])
-
-with c1:
-    year = st.number_input(
-        "Rok",
-        value=today.year,
-        step=1
-    )
-
-with c2:
-    month = st.selectbox(
-        "Miesiąc",
-        list(range(1,13)),
-        index=today.month-1,
-        format_func=lambda x: calendar.month_name[x]
-    )
-
-person = st.selectbox(
-    "Wybierz osobę",
-    list(USERS.keys())
-)
-
-st.markdown(
-    f"<div class='month'>{calendar.month_name[month]} {year}</div>",
-    unsafe_allow_html=True
-)
-
-weekdays = [
-    "",
-    "Pon",
-    "Wt",
-    "Śr",
-    "Czw",
-    "Pt",
-    "Sob",
-    "Nd"
-]
-
-cols = st.columns(8)
-
-for i,w in enumerate(weekdays):
-    cols[i].markdown(f"### {w}")
-
-cal = calendar.Calendar(firstweekday=0)
-
-weeks = cal.monthdatescalendar(year,month)
-
-for week in weeks:
-
-    week_number = week[0].isocalendar()[1]
-
-    cols = st.columns(8)
-
-    cols[0].markdown(
-        f"<div class='weekLabel'>W{week_number}</div>",
-        unsafe_allow_html=True
-    )
-
-    for i,day in enumerate(week):
-
-        if day.month != month:
+cal=calendar.Calendar(firstweekday=0)
+for week in cal.monthdatescalendar(y,m):
+    cols=st.columns(8)
+    cols[0].write("W"+str(week[0].isocalendar()[1]))
+    for i,d in enumerate(week):
+        if d.month!=m:
             cols[i+1].write("")
             continue
-
-        key = str(day)
-
-        if key in data:
-
-            owner = data[key]
-            color = USERS[owner]
-
-            cols[i+1].markdown(f"""
-            <div class="dayBox"
-            style="
-            background:{color};
-            color:white;
-            ">
-            <b>{day.day}</b><br><br>
-            {owner}
-            </div>
-            """,
-            unsafe_allow_html=True)
-
-        else:
-
-            if cols[i+1].button(
-                f"{day.day}",
-                key=key
-            ):
-                data[key]=person
-
-                with open(DATA_FILE,"w",encoding="utf8") as f:
-                    json.dump(data,f)
-
-                st.rerun()
-
-st.divider()
-
-st.subheader("Usuwanie swoich rezerwacji")
-
-own = []
-
-for d,u in data.items():
-    if u==person:
-
-        dt=datetime.strptime(d,"%Y-%m-%d")
-
-        own.append((dt,d))
-
-own.sort()
-
-for dt,d in own:
-
-    c1,c2=st.columns([4,1])
-
-    c1.write(dt.strftime("%d.%m.%Y"))
-
-    if c2.button("Usuń",key="del"+d):
-
-        del data[d]
-
-        with open(DATA_FILE,"w",encoding="utf8") as f:
-            json.dump(data,f)
-
-        st.rerun()
+        key=str(d)
+        people=data.get(key,[])
+        with cols[i+1]:
+            st.markdown(f"**{d.day}**")
+            for idx,p in enumerate(people):
+                cc=USERS[p]
+                c1,c2=st.columns([5,1])
+                c1.markdown(f"<div style='background:{cc};color:white;padding:2px 6px;border-radius:6px'>{p}</div>",unsafe_allow_html=True)
+                if p==me:
+                    if c2.button("❌",key=f"del{key}{idx}"):
+                        people.remove(p)
+                        if people: data[key]=people
+                        else: data.pop(key,None)
+                        json.dump(data,open(FILE,"w",encoding="utf8"),ensure_ascii=False)
+                        st.rerun()
+            if me not in people and len(people)<2:
+                if st.button("➕",key="add"+key):
+                    people.append(me)
+                    data[key]=people
+                    json.dump(data,open(FILE,"w",encoding="utf8"),ensure_ascii=False)
+                    st.rerun()
+            elif len(people)>=2:
+                st.caption("Pełny")
