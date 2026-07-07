@@ -130,51 +130,72 @@ heads=["Week","Pon","Wt","Śr","Czw","Pt","Sob","Nd"]
 cols=st.columns(8)
 for c,h in zip(cols,heads): c.markdown(f"**{h}**")
 
-cal=calendar.Calendar(firstweekday=0)
-for week in cal.monthdatescalendar(y,m):
-    cols=st.columns(8)
-    cols[0].write("W"+str(week[0].isocalendar()[1]))
-    for i,d in enumerate(week):
-        if d.month!=m:
+cal = calendar.Calendar(firstweekday=0)
+
+for week in cal.monthdatescalendar(y, m):
+
+    cols = st.columns(8)
+
+    cols[0].markdown(
+        f"### W{week[0].isocalendar()[1]}"
+    )
+
+    for i, d in enumerate(week):
+
+        if d.month != m:
             cols[i+1].write("")
             continue
-                key=str(d)
-                people=data.get(key,[])
-                with cols[i+1]:
+
+        key = str(d)
+
+        people = data.get(key, [])
+
+        # kompatybilność ze starym json
+        if isinstance(people, str):
+            people = [people]
+            data[key] = people
+
+        with cols[i+1]:
 
             st.markdown(f"### {d.day}")
 
-            for idx, p in enumerate(people):
+            # ---------- wpisy ----------
+            for idx, person in enumerate(people):
 
-                cc = USERS[p]
+                color = USERS[person]
 
-                row1, row2 = st.columns([6, 1], gap="small")
+                c1, c2 = st.columns([6,1], gap="small")
 
-                with row1:
+                with c1:
+
                     st.markdown(
                         f"""
                         <div style="
-                            background:{cc};
+                            background:{color};
                             color:white;
+                            padding:7px 10px;
                             border-radius:8px;
-                            padding:6px 10px;
                             font-weight:600;
-                            margin-bottom:4px;
+                            margin-bottom:6px;
+                            text-align:center;
                         ">
-                            {p}
+                        {person}
                         </div>
                         """,
-                        unsafe_allow_html=True,
+                        unsafe_allow_html=True
                     )
 
-                with row2:
-                    if p == me:
+                with c2:
+
+                    if person == me:
+
                         if st.button(
                             "✕",
                             key=f"del{key}{idx}",
-                            use_container_width=True,
+                            use_container_width=True
                         ):
-                            people.remove(p)
+
+                            people.remove(person)
 
                             if people:
                                 data[key] = people
@@ -182,16 +203,39 @@ for week in cal.monthdatescalendar(y,m):
                                 data.pop(key, None)
 
                             with open(FILE, "w", encoding="utf8") as f:
-                                json.dump(data, f, ensure_ascii=False)
+                                json.dump(
+                                    data,
+                                    f,
+                                    ensure_ascii=False
+                                )
 
                             st.rerun()
 
-            if me not in people and len(people) < 2:
-                if st.button("➕", key="add"+key, use_container_width=True):
-                    people.append(me)
-                    data[key] = people
+            # ---------- dodawanie ----------
 
-                    with open(FILE, "w", encoding="utf8") as f:
-                        json.dump(data, f, ensure_ascii=False)
+            if me not in people:
 
-                    st.rerun()
+                if len(people) < 2:
+
+                    if st.button(
+                        "➕ Dodaj",
+                        key="add"+key,
+                        use_container_width=True
+                    ):
+
+                        people.append(me)
+
+                        data[key] = people
+
+                        with open(FILE, "w", encoding="utf8") as f:
+                            json.dump(
+                                data,
+                                f,
+                                ensure_ascii=False
+                            )
+
+                        st.rerun()
+
+                else:
+
+                    st.error("Pełny")
