@@ -142,45 +142,55 @@ for week in cal.monthdatescalendar(y,m):
         people=data.get(key,[])
         with cols[i+1]:
             st.markdown(f"**{d.day}**")
-           for idx, p in enumerate(people):
+                 for idx, p in enumerate(people):
 
-    cc = USERS[p]
+            cc = USERS[p]
 
-    left, right = st.columns([8,1], vertical_alignment="center")
+            left, right = st.columns([8,1])
 
-    with left:
-        st.markdown(f"""
-        <div style="
-            background:{cc};
-            color:white;
-            border-radius:8px;
-            padding:6px 10px;
-            font-weight:600;
-            margin-bottom:4px;
-        ">
-            {p}
-        </div>
-        """, unsafe_allow_html=True)
+            with left:
+                st.markdown(
+                    f"""
+                    <div style="
+                        background:{cc};
+                        color:white;
+                        border-radius:8px;
+                        padding:6px 10px;
+                        font-weight:600;
+                        margin-bottom:4px;
+                    ">
+                        {p}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
-    with right:
-        if p == me:
-            if st.button("✕", key=f"del{key}{idx}", use_container_width=True):
-                people.remove(p)
+            with right:
+                if p == me:
+                    if st.button("✕", key=f"del{key}{idx}", use_container_width=True):
+                        people.remove(p)
 
-                if people:
-                    data[key] = people
-                else:
-                    data.pop(key, None)
+                        if people:
+                            data[key] = people
+                        else:
+                            data.pop(key, None)
+
+                        with open(FILE, "w", encoding="utf8") as f:
+                            json.dump(data, f, ensure_ascii=False)
+
+                        st.rerun()
+
+        if me not in people and len(people) < 2:
+            if st.button("➕", key="add"+key):
+                people.append(me)
+                data[key] = people
 
                 with open(FILE, "w", encoding="utf8") as f:
                     json.dump(data, f, ensure_ascii=False)
 
                 st.rerun()
-            if me not in people and len(people)<2:
-                if st.button("➕",key="add"+key):
-                    people.append(me)
-                    data[key]=people
-                    json.dump(data,open(FILE,"w",encoding="utf8"),ensure_ascii=False)
-                    st.rerun()
+
+        elif len(people) >= 2:
+            st.caption("Pełny")
             elif len(people)>=2:
                 st.caption("Pełny")
