@@ -1,165 +1,220 @@
-import calendar
-import hmac
-import os
-import sqlite3
-from contextlib import closing
-from datetime import date, datetime
-from pathlib import Path
-
 import streamlit as st
+import calendar
+import json
+import os
+from datetime import date, datetime
+from collections import defaultdict
 
-# --- CONFIG ---
-APP_PASSWORD = os.getenv("APP_PASSWORD", "dexflex67")
-DB_PATH = Path(__file__).with_name("out_of_office.db")
+st.set_page_config(
+    page_title="Kalendarz Zespołu",
+    layout="wide"
+)
 
-PEOPLE = ["Dagmara", "Szymon", "Michał", "Darek", "Julka"]
+PASSWORD = "dexflex67"
 
-DEFAULT_COLORS = {
-    "Dagmara": "#E11D48",
-    "Szymon": "#2563EB",
-    "Michał": "#16A34A",
-    "Darek": "#F59E0B",
-    "Julka": "#7C3AED",
+USERS = {
+    "Dagmara": "#ff5c8d",
+    "Julia": "#b05cff",
+    "Darek": "#4da6ff",
+    "Szymon": "#45d483",
+    "Michał": "#ffb347"
 }
 
-WEEKDAYS = ["Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Nd"]
+DATA_FILE = "calendar_data.json"
 
-# --- DB ---
-def init_db():
-    with closing(sqlite3.connect(DB_PATH)) as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS days_off (
-                date TEXT PRIMARY KEY,
-                person TEXT,
-                color TEXT,
-                created_at TEXT
-            )
-        """)
-        conn.commit()
 
-def get_events():
-    with closing(sqlite3.connect(DB_PATH)) as conn:
-        rows = conn.execute("SELECT date, person, color FROM days_off").fetchall()
-    return {r[0]: {"person": r[1], "color": r[2]} for r in rows}
+# ---------- Hasło ----------
 
-def reserve(day, person, color):
-    with closing(sqlite3.connect(DB_PATH)) as conn:
-        try:
-            conn.execute(
-                "INSERT INTO days_off VALUES (?, ?, ?, ?)",
-                (day, person, color, datetime.now().isoformat())
-            )
-            conn.commit()
-        except sqlite3.IntegrityError:
-            pass
+if "logged" not in st.session_state:
+    st.session_state.logged = False
 
-def release(day):
-    with closing(sqlite3.connect(DB_PATH)) as conn:
-        conn.execute("DELETE FROM days_off WHERE date=?", (day,))
-        conn.commit()
+if not st.session_state.logged:
 
-# --- COLOR ---
-def text_color(bg):
-    bg = bg.lstrip("#")
-    r, g, b = int(bg[:2], 16), int(bg[2:4], 16), int(bg[4:], 16)
-    return "#000" if (0.299*r + 0.587*g + 0.114*b) > 186 else "#fff"
+    st.title("🔒 Kalendarz Zespołowy")
 
-# --- APP ---
-st.set_page_config(layout="wide")
+    password = st.text_input(
+        "Podaj hasło",
+        type="password"
+    )
 
-init_db()
-
-# --- LOGIN (STABLE) ---
-if "auth" not in st.session_state:
-    pwd = st.text_input("Hasło", type="password")
-    if st.button("Wejdź"):
-        if hmac.compare_digest(pwd, APP_PASSWORD):
-            st.session_state.auth = True
+    if st.button("Zaloguj"):
+        if password == PASSWORD:
+            st.session_state.logged = True
             st.rerun()
         else:
-            st.error("Błędne hasło")
+            st.error("Niepoprawne hasło")
+
     st.stop()
 
-# --- STATE ---
+# ---------- Dane ----------
+
+if os.path.exists(DATA_FILE):
+    with open(DATA_FILE, "r", encoding="utf8") as f:
+        data = json.load(f)
+else:
+    data = {}
+
+# ---------- Styl ----------
+
+st.markdown("""
+<style>
+
+div.stButton>button{
+width:100%;
+height:75px;
+font-size:15px;
+border-radius:10px;
+}
+
+.dayBox{
+border-radius:10px;
+padding:6px;
+height:85px;
+font-size:14px;
+font-weight:bold;
+}
+
+.weekLabel{
+font-weight:bold;
+font-size:18px;
+padding-top:25px;
+}
+
+.month{
+font-size:34px;
+font-weight:bold;
+padding-bottom:15px;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# ---------- Wybór ----------
+
 today = date.today()
 
-st.session_state.setdefault("y", today.year)
-st.session_state.setdefault("m", today.month)
+c1,c2,c3 = st.columns([2,2,6])
 
-person = st.selectbox("Osoba", PEOPLE)
-color = st.color_picker("Kolor", DEFAULT_COLORS.get(person, "#2563EB"))
+with c1:
+    year = st.number_input(
+        "Rok",
+        value=today.year,
+        step=1
+    )
 
-events = get_events()
+with c2:
+    month = st.selectbox(
+        "Miesiąc",
+        list(range(1,13)),
+        index=today.month-1,
+        format_func=lambda x: calendar.month_name[x]
+    )
 
-# --- CLICK HANDLER (NO QUERY PARAMS = NO LOGOUT BUG) ---
-clicked = st.session_state.get("clicked_day")
+person = st.selectbox(
+    "Wybierz osobę",
+    list(USERS.keys())
+)
 
-if clicked:
-    ev = events.get(clicked)
+st.markdown(
+    f"<div class='month'>{calendar.month_name[month]} {year}</div>",
+    unsafe_allow_html=True
+)
 
-    # 🔥 DAGMARA = ADMIN (może wszystko)
-    is_admin = person == "Dagmara"
+weekdays = [
+    "",
+    "Pon",
+    "Wt",
+    "Śr",
+    "Czw",
+    "Pt",
+    "Sob",
+    "Nd"
+]
 
-    if ev:
-        if ev["person"] == person or is_admin:
-            release(clicked)
-    else:
-        reserve(clicked, person, color)
+cols = st.columns(8)
 
-    st.session_state.clicked_day = None
-    st.rerun()
+for i,w in enumerate(weekdays):
+    cols[i].markdown(f"### {w}")
 
-# --- NAV ---
-col1, col2, col3 = st.columns(3)
-
-if col1.button("←"):
-    st.session_state.m -= 1
-    if st.session_state.m < 1:
-        st.session_state.m = 12
-        st.session_state.y -= 1
-    st.rerun()
-
-col2.markdown(f"### {st.session_state.m}/{st.session_state.y}")
-
-if col3.button("→"):
-    st.session_state.m += 1
-    if st.session_state.m > 12:
-        st.session_state.m = 1
-        st.session_state.y += 1
-    st.rerun()
-
-# --- CALENDAR ---
 cal = calendar.Calendar(firstweekday=0)
-weeks = cal.monthdayscalendar(st.session_state.y, st.session_state.m)
 
-st.write("")
-
-header = st.columns(7)
-for i, d in enumerate(WEEKDAYS):
-    header[i].markdown(d)
+weeks = cal.monthdatescalendar(year,month)
 
 for week in weeks:
-    cols = st.columns(7)
 
-    for i, day in enumerate(week):
-        if day == 0:
-            cols[i].write("")
+    week_number = week[0].isocalendar()[1]
+
+    cols = st.columns(8)
+
+    cols[0].markdown(
+        f"<div class='weekLabel'>W{week_number}</div>",
+        unsafe_allow_html=True
+    )
+
+    for i,day in enumerate(week):
+
+        if day.month != month:
+            cols[i+1].write("")
             continue
 
-        d = date(st.session_state.y, st.session_state.m, day)
-        iso = d.isoformat()
+        key = str(day)
 
-        ev = events.get(iso)
+        if key in data:
 
-        if ev:
-            bgc = ev["color"]
-            txt = text_color(bgc)
-            label = f"{day}\n{ev['person']}"
+            owner = data[key]
+            color = USERS[owner]
+
+            cols[i+1].markdown(f"""
+            <div class="dayBox"
+            style="
+            background:{color};
+            color:white;
+            ">
+            <b>{day.day}</b><br><br>
+            {owner}
+            </div>
+            """,
+            unsafe_allow_html=True)
+
         else:
-            bgc = "#222"
-            txt = "#fff"
-            label = str(day)
 
-        if cols[i].button(label, key=iso):
-            st.session_state.clicked_day = iso
-            st.rerun()
+            if cols[i+1].button(
+                f"{day.day}",
+                key=key
+            ):
+                data[key]=person
+
+                with open(DATA_FILE,"w",encoding="utf8") as f:
+                    json.dump(data,f)
+
+                st.rerun()
+
+st.divider()
+
+st.subheader("Usuwanie swoich rezerwacji")
+
+own = []
+
+for d,u in data.items():
+    if u==person:
+
+        dt=datetime.strptime(d,"%Y-%m-%d")
+
+        own.append((dt,d))
+
+own.sort()
+
+for dt,d in own:
+
+    c1,c2=st.columns([4,1])
+
+    c1.write(dt.strftime("%d.%m.%Y"))
+
+    if c2.button("Usuń",key="del"+d):
+
+        del data[d]
+
+        with open(DATA_FILE,"w",encoding="utf8") as f:
+            json.dump(data,f)
+
+        st.rerun()
