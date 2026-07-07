@@ -195,6 +195,3 @@ for week in cal.monthdatescalendar(y,m):
                         json.dump(data, f, ensure_ascii=False)
 
                     st.rerun()
-
-            elif len(people) >= 2:
-                st.caption("Pełny")
