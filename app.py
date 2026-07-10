@@ -270,7 +270,7 @@ for week in cal.monthdatescalendar(y, m):
                             try:
                                 sha = github_save(latest_data, sha)
 
-                                time.sleep(0.5)
+                                time.sleep(0.7)
                                 
                                 st.rerun()
 
@@ -301,7 +301,7 @@ for week in cal.monthdatescalendar(y, m):
                         try:
                             sha = github_save(latest_data, sha)
 
-                            time.sleep(0.9)
+                            time.sleep(1.2)
                             
                             st.rerun()
                         
