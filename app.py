@@ -1,5 +1,6 @@
 import streamlit as st
 import calendar
+from streamlit_autorefresh import st_autorefresh
 import json
 import base64
 import requests
@@ -34,6 +35,22 @@ def github_load():
     content = base64.b64decode(j["content"]).decode()
 
     return json.loads(content), j["sha"]
+
+def github_get_sha():
+
+    url = f"https://api.github.com/repos/{GITHUB_USER}/{REPO}/contents/{FILE}?ref={BRANCH}"
+
+    r = requests.get(
+        url,
+        headers={
+            "Authorization": f"Bearer {TOKEN}",
+            "Accept": "application/vnd.github+json"
+        }
+    )
+
+    r.raise_for_status()
+
+    return r.json()["sha"]
 
 
 def github_save(data, sha):
@@ -132,8 +149,20 @@ if not st.session_state.ok:
             st.session_state.ok=True; st.rerun()
         else: st.error("Błędne hasło")
     st.stop()
-
+    
+    st_autorefresh(interval=5000, key="calendar_refresh")
 data, sha = github_load()
+
+if "last_sha" not in st.session_state:
+    st.session_state.last_sha = sha
+
+current_sha = github_get_sha()
+
+if current_sha != st.session_state.last_sha:
+
+    st.session_state.last_sha = current_sha
+
+    st.rerun()
 
 t=date.today()
 a,b=st.columns([1,1])
@@ -270,6 +299,8 @@ for week in cal.monthdatescalendar(y, m):
                             try:
                                 sha = github_save(latest_data, sha)
 
+                                st.session_state.last_sha = sha
+
                                 time.sleep(0.7)
                                 
                                 st.rerun()
@@ -300,6 +331,8 @@ for week in cal.monthdatescalendar(y, m):
 
                         try:
                             sha = github_save(latest_data, sha)
+
+                            st.session_state.last_sha = sha
 
                             time.sleep(1.2)
                             
