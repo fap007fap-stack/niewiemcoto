@@ -301,13 +301,9 @@ for week in cal.monthdatescalendar(y, m):
                         try:
                             sha = github_save(latest_data, sha)
 
-                            time.sleep(0.5)
+                            time.sleep(0.9)
                             
                             st.rerun()
                         
                         except requests.HTTPError:
                             st.warning("⚠️ Ktoś właśnie zmienił kalendarz. Spróbuj ponownie.")
-
-                else:
-
-                    st.error("Pełny")
