@@ -1,11 +1,71 @@
-import streamlit as st, calendar, json, os
+import streamlit as st
+import calendar
+import json
+import base64
+import requests
 from datetime import date
 st.set_page_config(layout="wide",page_title="Kalendarz Zespołu")
 PASSWORD="dexflex67"
 USERS={"Dagmara":"#ff5c8d","Julia":"#b05cff","Darek":"#4da6ff","Szymon":"#45d483","Michał":"#ffb347"}
 PL=["","Styczeń","Luty","Marzec","Kwiecień","Maj","Czerwiec","Lipiec","Sierpień","Wrzesień","Październik","Listopad","Grudzień"]
 FILE="calendar_data.json"
+GITHUB_USER = "fap007fap-stack"
+REPO = "niewiemcoto"
+BRANCH = "main"
 
+TOKEN = st.secrets["GITHUB_TOKEN"]
+def github_load():
+
+    url = f"https://api.github.com/repos/{GITHUB_USER}/{REPO}/contents/{FILE}?ref={BRANCH}"
+
+    r = requests.get(
+        url,
+        headers={
+            "Authorization": f"Bearer {TOKEN}",
+            "Accept": "application/vnd.github+json"
+        }
+    )
+
+    r.raise_for_status()
+
+    j = r.json()
+
+    content = base64.b64decode(j["content"]).decode()
+
+    return json.loads(content), j["sha"]
+
+
+def github_save(data, sha):
+
+    url = f"https://api.github.com/repos/{GITHUB_USER}/{REPO}/contents/{FILE}"
+
+    encoded = base64.b64encode(
+        json.dumps(
+            data,
+            ensure_ascii=False,
+            indent=2
+        ).encode()
+    ).decode()
+
+    payload = {
+        "message": "Update calendar",
+        "content": encoded,
+        "sha": sha,
+        "branch": BRANCH
+    }
+
+    r = requests.put(
+        url,
+        headers={
+            "Authorization": f"Bearer {TOKEN}",
+            "Accept": "application/vnd.github+json"
+        },
+        json=payload
+    )
+
+    r.raise_for_status()
+
+    return r.json()["content"]["sha"]
 st.markdown("""
 <style>
 
@@ -72,8 +132,7 @@ if not st.session_state.ok:
         else: st.error("Błędne hasło")
     st.stop()
 
-data={}
-if os.path.exists(FILE): data=json.load(open(FILE,encoding="utf8"))
+data, sha = github_load()
 
 t=date.today()
 a,b=st.columns([1,1])
@@ -202,12 +261,7 @@ for week in cal.monthdatescalendar(y, m):
                             else:
                                 data.pop(key, None)
 
-                            with open(FILE, "w", encoding="utf8") as f:
-                                json.dump(
-                                    data,
-                                    f,
-                                    ensure_ascii=False
-                                )
+                            sha = github_save(data, sha)
 
                             st.rerun()
 
@@ -227,12 +281,7 @@ for week in cal.monthdatescalendar(y, m):
 
                         data[key] = people
 
-                        with open(FILE, "w", encoding="utf8") as f:
-                            json.dump(
-                                data,
-                                f,
-                                ensure_ascii=False
-                            )
+                        sha = github_save(data, sha)
 
                         st.rerun()
 
