@@ -149,8 +149,8 @@ if not st.session_state.ok:
             st.session_state.ok=True; st.rerun()
         else: st.error("Błędne hasło")
     st.stop()
-    
     st_autorefresh(interval=5000, key="calendar_refresh")
+    
 data, sha = github_load()
 
 if "last_sha" not in st.session_state:
