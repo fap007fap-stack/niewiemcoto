@@ -14,7 +14,6 @@ REPO = "niewiemcoto"
 BRANCH = "main"
 
 TOKEN = st.secrets["GITHUB_TOKEN"]
-@st.cache_data(ttl=2)
 def github_load():
 
     url = f"https://api.github.com/repos/{GITHUB_USER}/{REPO}/contents/{FILE}?ref={BRANCH}"
