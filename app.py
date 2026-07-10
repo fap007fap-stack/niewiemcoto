@@ -14,6 +14,7 @@ REPO = "niewiemcoto"
 BRANCH = "main"
 
 TOKEN = st.secrets["GITHUB_TOKEN"]
+@st.cache_data(ttl=2)
 def github_load():
 
     url = f"https://api.github.com/repos/{GITHUB_USER}/{REPO}/contents/{FILE}?ref={BRANCH}"
@@ -254,16 +255,24 @@ for week in cal.monthdatescalendar(y, m):
                             use_container_width=True
                         ):
 
-                            people.remove(person)
+                            latest_data, sha = github_load()
 
+                            people = latest_data.get(key, [])
+
+                            if person in people:
+                                people.remove(person)
+                            
                             if people:
-                                data[key] = people
+                                latest_data[key] = people
                             else:
-                                data.pop(key, None)
+                                latest_data.pop(key, None)
+                            
+                            try:
+                                sha = github_save(latest_data, sha)
+                                st.rerun()
 
-                            sha = github_save(data, sha)
-
-                            st.rerun()
+                            except requests.HTTPError:
+                                st.warning("⚠️ Ktoś właśnie zmienił kalendarz. Spróbuj ponownie.")
 
             # ---------- dodawanie ----------
 
@@ -277,13 +286,21 @@ for week in cal.monthdatescalendar(y, m):
                         use_container_width=True
                     ):
 
-                        people.append(me)
+                        latest_data, sha = github_load()
 
-                        data[key] = people
+                        people = latest_data.get(key, [])
 
-                        sha = github_save(data, sha)
+                        if me not in people and len(people) < 2:
+                            people.append(me)
 
-                        st.rerun()
+                        latest_data[key] = people
+
+                        try:
+                            sha = github_save(latest_data, sha)
+                            st.rerun()
+                        
+                        except requests.HTTPError:
+                            st.warning("⚠️ Ktoś właśnie zmienił kalendarz. Spróbuj ponownie.")
 
                 else:
 
