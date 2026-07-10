@@ -3,6 +3,7 @@ import calendar
 import json
 import base64
 import requests
+import time
 from datetime import date
 st.set_page_config(layout="wide",page_title="Kalendarz Zespołu")
 PASSWORD="dexflex67"
@@ -268,6 +269,9 @@ for week in cal.monthdatescalendar(y, m):
                             
                             try:
                                 sha = github_save(latest_data, sha)
+
+                                time.sleep(0.5)
+                                
                                 st.rerun()
 
                             except requests.HTTPError:
@@ -296,6 +300,9 @@ for week in cal.monthdatescalendar(y, m):
 
                         try:
                             sha = github_save(latest_data, sha)
+
+                            time.sleep(0.5)
+                            
                             st.rerun()
                         
                         except requests.HTTPError:
