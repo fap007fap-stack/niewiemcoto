@@ -143,13 +143,18 @@ st.markdown("""
 if "ok" not in st.session_state: st.session_state.ok=False
 if not st.session_state.ok:
     st.title("🔒 Logowanie")
-    p=st.text_input("Hasło",type="password")
+    p = st.text_input("Hasło", type="password")
+
     if st.button("Wejdź"):
-        if p==PASSWORD:
-            st.session_state.ok=True; st.rerun()
-        else: st.error("Błędne hasło")
+        if p == PASSWORD:
+            st.session_state.ok = True
+            st.rerun()
+        else:
+            st.error("Błędne hasło")
+
     st.stop()
-    st_autorefresh(interval=5000, key="calendar_refresh")
+
+st_autorefresh(interval=5000, key="calendar_refresh")
     
 data, sha = github_load()
 
