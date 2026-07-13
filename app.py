@@ -154,7 +154,7 @@ if not st.session_state.ok:
 
     st.stop()
 
-st_autorefresh(interval=5000, key="calendar_refresh")
+st_autorefresh(interval=10000, key="calendar_refresh")
     
 data, sha = github_load()
 
