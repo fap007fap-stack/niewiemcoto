@@ -131,7 +131,7 @@ if not st.session_state.ok:
             st.error("Błędne hasło")
     st.stop()
 
-st_autorefresh(interval=5000, key="calendar_refresh")
+st_autorefresh(interval=10000, key="calendar_refresh")
 
 # Ładowanie danych
 data, sha = github_load()
