@@ -166,7 +166,7 @@ h1, h2, h3, p, label, [data-testid="stWidgetLabel"] p {
 
 .stButton > button {
     width: 100%;
-    min-height: 40px;
+    min-height: 44px;
     background: rgba(11, 11, 9, 0.94);
     color: var(--empik-cream);
     border: 1px solid rgba(255, 248, 231, 0.30);
