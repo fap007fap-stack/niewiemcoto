@@ -166,7 +166,7 @@ h1, h2, h3, p, label, [data-testid="stWidgetLabel"] p {
 
 .stButton > button {
     width: 100%;
-    min-height: 42px;
+    min-height: 44px;
     background: rgba(11, 11, 9, 0.94);
     color: var(--empik-cream);
     border: 1px solid rgba(255, 248, 231, 0.30);
@@ -243,6 +243,21 @@ h1, h2, h3, p, label, [data-testid="stWidgetLabel"] p {
     box-shadow: 0 6px 12px rgba(57, 37, 0, 0.17);
 }
 
+.month-label {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px;
+    background: rgba(11, 11, 9, 0.72);
+    border: 1px solid rgba(255, 248, 231, 0.25);
+    border-radius: 10px;
+    color: var(--empik-cream);
+    font-size: 16px;
+    font-weight: 800;
+}
+
+/* Tło pola wyboru roku — na końcu CSS, aby nadpisać wcześniejsze reguły. */
 [data-testid="stNumberInput"] input {
     background: rgba(11, 11, 9, 0.72) !important;
     color: #fff8e7 !important;
@@ -252,7 +267,6 @@ h1, h2, h3, p, label, [data-testid="stWidgetLabel"] p {
     background: rgba(11, 11, 9, 0.88) !important;
     color: #fff8e7 !important;
 }
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -318,11 +332,54 @@ with st.sidebar:
 
 # --- GŁÓWNY INTERFEJS ---
 t = date.today()
+
+if "view_year" not in st.session_state:
+    st.session_state.view_year = t.year
+if "view_month" not in st.session_state:
+    st.session_state.view_month = t.month
+if "view_year_input" not in st.session_state:
+    st.session_state.view_year_input = t.year
+
+
+def sync_year_from_input():
+    st.session_state.view_year = int(st.session_state.view_year_input)
+
+
+def move_month(direction):
+    new_month = st.session_state.view_month + direction
+    if new_month == 0:
+        st.session_state.view_month = 12
+        st.session_state.view_year -= 1
+    elif new_month == 13:
+        st.session_state.view_month = 1
+        st.session_state.view_year += 1
+    else:
+        st.session_state.view_month = new_month
+
+    st.session_state.view_year_input = st.session_state.view_year
+
+
 a, b = st.columns([1, 1])
 with a:
-    y = st.number_input("Rok", value=t.year, step=1)
+    st.number_input(
+        "Rok",
+        step=1,
+        key="view_year_input",
+        on_change=sync_year_from_input,
+    )
+
 with b:
-    m = st.selectbox("Miesiąc", range(1, 13), index=t.month - 1, format_func=lambda x: PL[x])
+    st.caption("Miesiąc")
+    previous, month_name, next_month = st.columns([1, 4, 1])
+    previous.button("←", key="previous_month", on_click=move_month, args=(-1,), use_container_width=True)
+    month_name.markdown(
+        f'<div class="month-label">{PL[st.session_state.view_month]}</div>',
+        unsafe_allow_html=True,
+    )
+    next_month.button("→", key="next_month", on_click=move_month, args=(1,), use_container_width=True)
+
+y = st.session_state.view_year
+m = st.session_state.view_month
 
 if "me" not in st.session_state or st.session_state.me not in USERS:
     st.session_state.me = list(USERS.keys())[0]
