@@ -24,7 +24,7 @@ DEFAULT_USERS = {
     "Julia": "#b05cff",
     "Darek": "#4da6ff",
     "Szymon": "#45d483",
-    "Michał": "#wf8f2a"
+    "Michał": "#a8854c"
 }
 PL = ["", "Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"]
 FILE = "calendar_data.json"
