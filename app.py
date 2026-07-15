@@ -120,15 +120,6 @@ def github_save(data, sha):
 # --- STYLIZACJA ---
 st.markdown("""
 <style>
-[data-testid="stNumberInput"] input {
-    background: rgba(11, 11, 9, 0.72) !important;
-    color: #fff8e7 !important;
-}
-
-[data-testid="stNumberInput"] button {
-    background: rgba(11, 11, 9, 0.88) !important;
-    color: #fff8e7 !important;
-}
 /* Paleta inspirowana Empikiem: musztarda, czerń i ciepła biel. */
 :root {
     --empik-yellow: #e8b21d;
@@ -251,6 +242,17 @@ h1, h2, h3, p, label, [data-testid="stWidgetLabel"] p {
     text-align: center;
     box-shadow: 0 6px 12px rgba(57, 37, 0, 0.17);
 }
+
+[data-testid="stNumberInput"] input {
+    background: rgba(11, 11, 9, 0.72) !important;
+    color: #fff8e7 !important;
+}
+
+[data-testid="stNumberInput"] button {
+    background: rgba(11, 11, 9, 0.88) !important;
+    color: #fff8e7 !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
