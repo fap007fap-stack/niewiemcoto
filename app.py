@@ -120,14 +120,121 @@ def github_save(data, sha):
 # --- STYLIZACJA ---
 st.markdown("""
 <style>
-.stButton>button { width:100%; border-radius:12px; }
-.day-card { background:#1c2333; border:1px solid #3b4458; border-radius:14px; padding:8px; min-height:165px; margin-bottom:6px; }
-.day-card:hover { border:1px solid #60a5fa; }
-.user-pill { border-radius:8px; color:white; padding:5px 8px; margin-top:4px; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center; font-size:14px; font-weight:600; }
-.day-number { font-size:20px; font-weight:bold; margin-bottom:8px; }
-.user-select button { height:55px; border-radius:14px; font-weight:bold; }
-.day-heading { display:flex; align-items:center; gap:7px; font-size:20px; font-weight:bold; margin-bottom:8px; }
-.today-badge { display:inline-flex; align-items:center; background:#1d4ed8; border:1px solid #93c5fd; border-radius:999px; color:#eff6ff; font-size:11px; font-weight:700; padding:3px 8px; }
+/* Paleta inspirowana Empikiem: musztarda, czerń i ciepła biel. */
+:root {
+    --empik-yellow: #e8b21d;
+    --empik-yellow-light: #f6ca48;
+    --empik-ink: #0b0b09;
+    --empik-cream: #fff8e7;
+    --empik-line: rgba(11, 11, 9, 0.22);
+}
+
+.stApp {
+    background:
+        radial-gradient(circle at 92% 6%, rgba(255, 248, 231, 0.30) 0 9%, transparent 30%),
+        linear-gradient(135deg, #f4c33a 0%, var(--empik-yellow) 48%, #d99c0d 100%);
+    color: var(--empik-ink);
+}
+
+[data-testid="stHeader"] { background: transparent; }
+.block-container { max-width: 1420px; padding-top: 2.5rem; padding-bottom: 3rem; }
+
+h1, h2, h3, p, label, [data-testid="stWidgetLabel"] p {
+    color: var(--empik-ink) !important;
+}
+
+[data-testid="stSidebar"] {
+    background: rgba(11, 11, 9, 0.94);
+    border-right: 1px solid rgba(255, 248, 231, 0.18);
+}
+
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] label {
+    color: var(--empik-cream) !important;
+}
+
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-baseweb="select"] > div {
+    background: rgba(255, 248, 231, 0.88) !important;
+    border-color: var(--empik-line) !important;
+    color: var(--empik-ink) !important;
+}
+
+.stButton > button {
+    width: 100%;
+    min-height: 44px;
+    background: rgba(11, 11, 9, 0.94);
+    color: var(--empik-cream);
+    border: 1px solid rgba(255, 248, 231, 0.30);
+    border-radius: 10px;
+    font-weight: 750;
+    letter-spacing: 0.01em;
+    box-shadow: 0 7px 15px rgba(57, 37, 0, 0.18);
+    transition: transform 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+
+.stButton > button:hover {
+    background: #20201a;
+    border-color: var(--empik-cream);
+    color: var(--empik-cream);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(57, 37, 0, 0.26);
+}
+
+.user-accent {
+    height: 8px;
+    border-radius: 0 0 8px 8px;
+    margin: -8px 7px 14px;
+    box-shadow: 0 6px 12px rgba(57, 37, 0, 0.20);
+}
+
+.calendar-rule {
+    height: 2px;
+    margin: 12px 0 14px;
+    background: linear-gradient(90deg, rgba(11, 11, 9, 0.75), rgba(11, 11, 9, 0.10));
+}
+
+.day-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 9px;
+    padding: 9px 11px;
+    background: rgba(11, 11, 9, 0.88);
+    border: 1px solid rgba(255, 248, 231, 0.22);
+    border-radius: 10px;
+    color: var(--empik-cream);
+    font-size: 20px;
+    font-weight: 800;
+    box-shadow: 0 8px 18px rgba(57, 37, 0, 0.16);
+}
+
+.today-badge {
+    display: inline-flex;
+    align-items: center;
+    background: var(--empik-yellow-light);
+    border: 1px solid rgba(255, 248, 231, 0.55);
+    border-radius: 999px;
+    color: var(--empik-ink);
+    font-size: 11px;
+    font-weight: 800;
+    padding: 3px 8px;
+}
+
+.person-pill {
+    color: white;
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.30);
+    border-radius: 8px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    text-align: center;
+    box-shadow: 0 6px 12px rgba(57, 37, 0, 0.17);
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -213,7 +320,7 @@ for i, (user, color) in enumerate(USERS.items()):
         st.session_state.me = user
         st.rerun()
     cols[i].markdown(f"""
-        <div style="height:10px; background:{color}; border-radius:0 0 8px 8px; margin-top:-8px; border:{border};"></div>
+        <div class="user-accent" style="background:{color}; border:{border};"></div>
     """, unsafe_allow_html=True)
 
 # Widok tygodnia roboczego: poniedziałek–piątek
@@ -221,6 +328,8 @@ heads = ["Tydzień", "Pon", "Wt", "Śr", "Czw", "Pt"]
 cols = st.columns(len(heads))
 for column, header in zip(cols, heads):
     column.markdown(f"**{header}**")
+
+st.markdown('<div class="calendar-rule"></div>', unsafe_allow_html=True)
 
 cal = calendar.Calendar(firstweekday=0)
 for week in cal.monthdatescalendar(y, m):
@@ -258,7 +367,7 @@ for week in cal.monthdatescalendar(y, m):
                 c1, c2 = st.columns([6, 1], gap="small")
                 with c1:
                     st.markdown(f"""
-                        <div style="background:{color}; color:white; padding:7px 10px; border-radius:8px; font-weight:600; margin-bottom:6px; text-align:center;">
+                        <div class="person-pill" style="background:linear-gradient(135deg, {color}, {color}bd);">
                         {person}
                         </div>
                     """, unsafe_allow_html=True)
