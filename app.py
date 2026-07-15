@@ -177,6 +177,13 @@ h1, h2, h3, p, label, [data-testid="stWidgetLabel"] p {
     transition: transform 150ms ease, background 150ms ease, box-shadow 150ms ease;
 }
 
+.stButton > button,
+.stButton > button p,
+.stButton > button span,
+.stButton > button div {
+    color: var(--empik-cream) !important;
+}
+
 .stButton > button:hover {
     background: #20201a;
     border-color: var(--empik-cream);
@@ -204,7 +211,7 @@ h1, h2, h3, p, label, [data-testid="stWidgetLabel"] p {
     gap: 8px;
     margin-bottom: 9px;
     padding: 9px 11px;
-    background: rgba(11, 11, 9, 0.88);
+    background: rgba(11, 11, 9, 0.68);
     border: 1px solid rgba(255, 248, 231, 0.22);
     border-radius: 10px;
     color: var(--empik-cream);
