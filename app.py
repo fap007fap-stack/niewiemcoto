@@ -371,7 +371,7 @@ for week in cal.monthdatescalendar(y, m):
                     continue
 
                 color = USERS[person]
-                c1, c2 = st.columns([5, 1], gap=None)
+                c1, c2 = st.columns([4, 1], gap=None)
                 with c1:
                     st.markdown(f"""
                         <div class="person-pill" style="background:linear-gradient(135deg, {color}, {color}bd);">
